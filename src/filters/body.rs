@@ -12,6 +12,7 @@ use futures_util::{future, ready, Stream, TryFutureExt};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::Body;
+use hyper::body::HttpBody;
 use mime;
 use serde::de::DeserializeOwned;
 use serde_json;
@@ -296,7 +297,7 @@ impl Stream for BodyStream {
     type Item = Result<Bytes, crate::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let opt_item = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
+        let opt_item = ready!(Pin::new(&mut self.get_mut().body).poll_data(cx));
 
         match opt_item {
             None => Poll::Ready(None),

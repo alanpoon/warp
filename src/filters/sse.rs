@@ -52,6 +52,7 @@ use std::time::Duration;
 use futures_util::{future, Stream, TryStream, TryStreamExt};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
+use hyper::body::Bytes;
 use pin_project::pin_project;
 use serde_json::{self, Error};
 use tokio::time::{self, Sleep};
@@ -308,46 +309,59 @@ where
 ///     );
 /// };
 /// ```
-pub fn reply<S>(event_stream: S) -> impl Reply
-where
-    S: TryStream<Ok = Event> + Send + 'static,
-    S::Error: StdError + Send + Sync + 'static,
-{
-    SseReply { event_stream }
-}
+// pub fn reply<S>(event_stream: S) -> impl Reply
+// where
+//     S: TryStream<Ok = Event> + Send + 'static,
+//     S::Error: StdError + Send + Sync + 'static,
+// {
+//     SseReply { event_stream }
+// }
 
 #[allow(missing_debug_implementations)]
 struct SseReply<S> {
     event_stream: S,
 }
-
-impl<S> Reply for SseReply<S>
-where
-    S: TryStream<Ok = Event> + Send + 'static,
-    S::Error: StdError + Send + Sync + 'static,
-{
-    #[inline]
-    fn into_response(self) -> Response {
-        let body_stream = self
-            .event_stream
-            .map_err(|error| {
-                // FIXME: error logging
-                log::error!("sse stream error: {}", error);
-                SseError
-            })
-            .into_stream()
-            .and_then(|event| future::ready(Ok(event.to_string())));
-
-        let mut res = Response::new(Body::wrap_stream(body_stream));
-        // Set appropriate content type
-        res.headers_mut()
-            .insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));
-        // Disable response body caching
-        res.headers_mut()
-            .insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
-        res
-    }
-}
+// alan
+// impl<S> Reply for SseReply<S>
+// where
+//     S: TryStream<Ok = Event> + Send + 'static,
+//     S::Error: StdError + Send + Sync + 'static,
+// {
+//     #[inline]
+//     fn into_response(self) -> Response {
+//         let body_stream = self
+//             .event_stream
+            
+//             .map_err(|error| {
+//                 // FIXME: error logging
+//                 log::error!("sse stream error: {}", error);
+//                 SseError
+//             })
+//             .into_stream()
+            
+//             //
+//             .and_then(|event| future::ready(Ok(event.to_string())))
+//             ;
+//         let (sender,body) = Body::channel();
+//         tokio::task::spawn(async move {
+//             // while let Some(data) = self.event_stream.next(){
+//             //     sender.send_data(data).await;
+//             // }
+//             let s = wrap_stream(body_stream);
+//             // let data = body_stream.poll();
+            
+//         });
+//         let mut res = Response::new(body);
+//         //let mut res = Response::new(Body::wrap_stream(body_stream));
+//         // Set appropriate content type
+//         res.headers_mut()
+//             .insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));
+//         // Disable response body caching
+//         res.headers_mut()
+//             .insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+//         res
+//     }
+// }
 
 /// Configure the interval between keep-alive messages, the content
 /// of each message, and the associated stream.
@@ -509,3 +523,15 @@ mod sealed {
 
     impl StdError for SseError {}
 }
+// wrap_stream
+// pub fn wrap_stream<S, O, E>(stream: S) -> Body
+//     where
+//         S: Stream<Item = Result<O, E>> + Send + 'static,
+//         O: Into<Bytes> + 'static,
+//         E: Into<Box<dyn StdError + Send + Sync>> + 'static,
+// {
+//     let mapped:i32 = stream.map_ok(Into::into).map_err(Into::into);
+//     //Body::new(Kind::Wrapped(SyncWrapper::new(Box::pin(mapped))))
+//     let (s,b) = Body::channel();
+//     b
+// }

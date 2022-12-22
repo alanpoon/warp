@@ -17,13 +17,13 @@ edition = "2018"
 all-features = true
 
 [dependencies]
-async-compression = { version = "0.3.7", features = ["tokio"], optional = true }
+async-compression = { version = "0.3.7", features = [], optional = true }
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 futures-channel = { version = "0.3.17", features = ["sink"]}
 headers = "0.3"
 http = "0.2"
-hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
+hyper = { version = "0.15", features = ["server", "http1", "http2", "tcp", "client"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
@@ -32,12 +32,13 @@ scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"
-tokio = { version = "1.0", features = ["fs", "sync", "time"] }
+tokio = { version = "1.21.0", features = ["rt", "macros", "net", "time", "io-util"]}
+#tokio = { version = "1.0", features = ["fs", "sync", "time","io-std", "macros", "net", "rt-multi-thread"]  }
 tokio-stream = "0.1.1"
 tokio-util = { version = "0.7", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
 tower-service = "0.3"
-tokio-tungstenite = { version = "0.17", optional = true }
+tokio-tungstenite = { version = "0.18", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.23", optional = true }
@@ -49,9 +50,9 @@ tracing-subscriber = "0.2.7"
 tracing-log = "0.1"
 serde_derive = "1.0"
 handlebars = "4.0"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.21.0", features = ["rt", "macros", "net", "time", "io-util"]}
 tokio-stream = { version = "0.1.1", features = ["net"] }
-listenfd = "0.3"
+#listenfd = "0.3"
 
 [features]
 default = ["multipart", "websocket"]
@@ -96,3 +97,8 @@ required-features = ["websocket"]
 
 [[example]]
 name = "query_string"
+
+[patch.crates-io]
+tokio = {path = "../tokio/tokio"}
+hyper = {path="../hyper_wasi2"}
+tokio-tungstenite = {path = "../tokio-tungstenite"}

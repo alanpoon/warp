@@ -95,11 +95,18 @@ pub mod redirect;
 pub mod reject;
 pub mod reply;
 mod route;
+//#[cfg(not(target_os = "wasi"))]
 mod server;
+//#[cfg(target_os = "wasi")]
+//mod server_wasi;
+//#[cfg(target_os = "wasi")]
+//use server_wasi as server;
 mod service;
+#[cfg(not(target_os = "wasi"))]
 pub mod test;
 #[cfg(feature = "tls")]
 mod tls;
+//#[cfg(not(target_os = "wasi"))]
 mod transport;
 
 pub use self::error::Error;

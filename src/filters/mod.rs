@@ -11,7 +11,12 @@ pub mod compression;
 pub mod cookie;
 pub mod cors;
 pub mod ext;
+#[cfg(not(target_os = "wasi"))]
 pub mod fs;
+#[cfg(target_os = "wasi")]
+pub mod fs_wasi;
+#[cfg(target_os = "wasi")]
+pub use fs_wasi as fs;
 pub mod header;
 pub mod host;
 pub mod log;
@@ -24,6 +29,10 @@ pub mod reply;
 pub mod sse;
 pub mod trace;
 #[cfg(feature = "websocket")]
+//#[cfg(not(target_os = "wasi"))]
 pub mod ws;
-
+//#[cfg(target_os = "wasi")]
+//pub mod ws_wasi;
+//#[cfg(target_os = "wasi")]
+//pub use ws_wasi as ws;
 pub use crate::filter::BoxedFilter;

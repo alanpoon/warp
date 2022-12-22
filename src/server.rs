@@ -8,7 +8,6 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 use futures_util::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
-use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -65,21 +64,23 @@ macro_rules! into_service {
 
 macro_rules! addr_incoming {
     ($addr:expr) => {{
-        let mut incoming = AddrIncoming::bind($addr)?;
-        incoming.set_nodelay(true);
-        let addr = incoming.local_addr();
-        (addr, incoming)
+        //let addr_c = $addr.clone();
+        let mut incoming = hyper::Server::bind($addr);
+        incoming.tcp_nodelay(true);
+        //let addr = incoming.local_addr();
+        ($addr, incoming)
     }};
 }
 
 macro_rules! bind_inner {
     ($this:ident, $addr:expr) => {{
         let service = into_service!($this.filter);
-        let (addr, incoming) = addr_incoming!($addr);
-        let srv = HyperServer::builder(incoming)
+        //let (addr, incoming) = addr_incoming!($addr);
+        //let addr_c = $addr.clone();
+        let srv = HyperServer::bind($addr)
             .http1_pipeline_flush($this.pipeline)
             .serve(service);
-        Ok::<_, hyper::Error>((addr, srv))
+        Ok::<_, hyper::Error>( srv)
     }};
 
     (tls: $this:ident, $addr:expr) => {{
@@ -89,7 +90,7 @@ macro_rules! bind_inner {
         let srv = HyperServer::builder(crate::tls::TlsAcceptor::new(tls, incoming))
             .http1_pipeline_flush($this.server.pipeline)
             .serve(service);
-        Ok::<_, Box<dyn std::error::Error + Send + Sync>>((addr, srv))
+        Ok::<_, Box<dyn std::error::Error + Send + Sync>>( srv)
     }};
 }
 
@@ -140,6 +141,7 @@ where
     /// of incoming connections.
     ///
     /// This can be used for Unix Domain Sockets, or TLS, etc.
+    #[cfg(not(target_os = "wasi"))]
     pub async fn run_incoming<I>(self, incoming: I)
     where
         I: TryStream + Send,
@@ -150,7 +152,7 @@ where
             .instrument(tracing::info_span!("Server::run_incoming"))
             .await;
     }
-
+    #[cfg(not(target_os = "wasi"))]
     async fn run_incoming2<I>(self, incoming: I)
     where
         I: TryStream + Send,
@@ -183,7 +185,7 @@ where
     pub async fn try_bind(self, addr: impl Into<SocketAddr>) {
         let addr = addr.into();
         let srv = match try_bind!(self, &addr) {
-            Ok((_, srv)) => srv,
+            Ok( srv) => srv,
             Err(err) => {
                 tracing::error!("error binding to {}: {}", addr, err);
                 return;
@@ -210,14 +212,15 @@ where
         self,
         addr: impl Into<SocketAddr>,
     ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
-        let (addr, srv) = bind!(self, addr);
+        let srv = bind!(self, addr);
+        let local_addr = srv.local_addr();
         let srv = srv.map(|result| {
             if let Err(err) = result {
                 tracing::error!("server error: {}", err)
             }
         });
 
-        (addr, srv)
+        (local_addr, srv)
     }
 
     /// Tried to bind a possibly ephemeral socket address.
@@ -232,14 +235,15 @@ where
         addr: impl Into<SocketAddr>,
     ) -> Result<(SocketAddr, impl Future<Output = ()> + 'static), crate::Error> {
         let addr = addr.into();
-        let (addr, srv) = try_bind!(self, &addr).map_err(crate::Error::new)?;
+        let srv = try_bind!(self, &addr).map_err(crate::Error::new)?;
+        let local_addr = srv.local_addr();
         let srv = srv.map(|result| {
             if let Err(err) = result {
                 tracing::error!("server error: {}", err)
             }
         });
 
-        Ok((addr, srv))
+        Ok((local_addr, srv))
     }
 
     /// Create a server with graceful shutdown signal.
@@ -280,13 +284,15 @@ where
         addr: impl Into<SocketAddr> + 'static,
         signal: impl Future<Output = ()> + Send + 'static,
     ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
-        let (addr, srv) = bind!(self, addr);
+        let  srv = bind!(self, addr);
+        let local_addr = srv.local_addr();
         let fut = srv.with_graceful_shutdown(signal).map(|result| {
             if let Err(err) = result {
                 tracing::error!("server error: {}", err)
             }
         });
-        (addr, fut)
+        
+        (local_addr, fut)
     }
 
     /// Create a server with graceful shutdown signal.
@@ -297,16 +303,16 @@ where
         self,
         addr: impl Into<SocketAddr> + 'static,
         signal: impl Future<Output = ()> + Send + 'static,
-    ) -> Result<(SocketAddr, impl Future<Output = ()> + 'static), crate::Error> {
+    ) -> Result<impl Future<Output = ()> + 'static, crate::Error> {
         let addr = addr.into();
-        let (addr, srv) = try_bind!(self, &addr).map_err(crate::Error::new)?;
+        let  srv = try_bind!(self, &addr).map_err(crate::Error::new)?;
         let srv = srv.with_graceful_shutdown(signal).map(|result| {
             if let Err(err) = result {
                 tracing::error!("server error: {}", err)
             }
         });
 
-        Ok((addr, srv))
+        Ok( srv)
     }
 
     /// Setup this `Server` with a specific stream of incoming connections.
@@ -314,6 +320,7 @@ where
     /// This can be used for Unix Domain Sockets, or TLS, etc.
     ///
     /// Returns a `Future` that can be executed on the current runtime.
+    #[cfg(not(target_os = "wasi"))]
     pub fn serve_incoming<I>(self, incoming: I) -> impl Future<Output = ()>
     where
         I: TryStream + Send,
@@ -334,6 +341,7 @@ where
     /// process.
     ///
     /// Returns a `Future` that can be executed on the current runtime.
+    #[cfg(not(target_os = "wasi"))]
     pub fn serve_incoming_with_graceful_shutdown<I>(
         self,
         incoming: I,
@@ -364,7 +372,7 @@ where
             "Server::serve_incoming_with_graceful_shutdown"
         ))
     }
-
+    #[cfg(not(target_os = "wasi"))]
     async fn serve_incoming2<I>(self, incoming: I)
     where
         I: TryStream + Send,
@@ -531,7 +539,7 @@ where
         self,
         addr: impl Into<SocketAddr>,
     ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
-        let (addr, srv) = bind!(tls: self, addr);
+        let  srv = bind!(tls: self, addr);
         let srv = srv.map(|result| {
             if let Err(err) = result {
                 tracing::error!("server error: {}", err)
