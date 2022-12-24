@@ -3,7 +3,7 @@
 use futures_util::{FutureExt, StreamExt};
 use warp::Filter;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     pretty_env_logger::init();
 
