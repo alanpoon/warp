@@ -267,7 +267,15 @@ fn file_reply(
 ) -> impl Future<Output = Result<File, Rejection>> + Send {
     let r = tokio::spawn(async move{ 
         if let Ok(r) = read(path.clone()){
-            let resp = Response::new(r.into());
+            let len = r.len() as u64;
+            let mut resp = Response::new(r.into());
+            
+            let mime = mime_guess::from_path(path.as_ref()).first_or_octet_stream();
+
+            resp.headers_mut().typed_insert(ContentLength(len));
+            resp.headers_mut().typed_insert(ContentType::from(mime));
+            resp.headers_mut().typed_insert(AcceptRanges::bytes());
+
             return Ok(File{
                 resp,path
             });
@@ -312,8 +320,9 @@ fn file_conditional(
                         buf_reader.read(&mut content);
                         let len = content.len() as u64;
                         let mut resp = Response::new(content.into());
+                        
                         let mime = mime_guess::from_path(path.as_ref()).first_or_octet_stream();
-
+                        println!("path {:?} mime {:?}",path,mime);
                         resp.headers_mut().typed_insert(ContentLength(len));
                         resp.headers_mut().typed_insert(ContentType::from(mime));
                         resp.headers_mut().typed_insert(AcceptRanges::bytes());

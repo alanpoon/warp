@@ -29,10 +29,5 @@ pub mod reply;
 pub mod sse;
 pub mod trace;
 #[cfg(feature = "websocket")]
-//#[cfg(not(target_os = "wasi"))]
 pub mod ws;
-//#[cfg(target_os = "wasi")]
-//pub mod ws_wasi;
-//#[cfg(target_os = "wasi")]
-//pub use ws_wasi as ws;
 pub use crate::filter::BoxedFilter;
