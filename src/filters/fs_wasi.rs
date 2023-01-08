@@ -6,13 +6,10 @@ use std::fs::Metadata;
 use std::future::Future;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Poll;
 
-use bytes::{Bytes, BytesMut};
-use futures_util::future::Either;
-use futures_util::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
+use bytes::{BytesMut};
+use futures_util::{future, FutureExt, TryFutureExt};
 use headers::{
     AcceptRanges, ContentLength, ContentRange, ContentType, HeaderMapExt, IfModifiedSince, IfRange,
     IfUnmodifiedSince, LastModified, Range,
@@ -23,8 +20,6 @@ use mime_guess;
 use percent_encoding::percent_decode_str;
 use std::fs::File as TkFile;
 use std::fs::read;
-use tokio::io::AsyncSeekExt;
-use tokio_util::io::poll_read_buf;
 
 use crate::filter::{Filter, FilterClone, One};
 use crate::reject::{self, Rejection};
@@ -263,7 +258,7 @@ impl Reply for File {
 //#[cfg(not(target_os = "wasi"))]
 fn file_reply(
     path: ArcPath,
-    conditionals: Conditionals,
+    _conditionals: Conditionals,
 ) -> impl Future<Output = Result<File, Rejection>> + Send {
     let r = tokio::spawn(async move{ 
         if let Ok(r) = read(path.clone()){
@@ -303,7 +298,7 @@ fn file_conditional(
     conditionals: Conditionals,
 ) -> impl Future<Output = Result<File, Rejection>> + Send {
     file_metadata(f).map_ok(move |(file, meta)| {
-        let mut len = meta.len();
+        let len = meta.len();
         let modified = meta.modified().ok().map(LastModified::from);
 
         let resp = match conditionals.check(modified) {
